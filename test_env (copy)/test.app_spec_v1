@@ -1,0 +1,6 @@
+{{vsn,{application,test}},["1.0.1","1.0.0"],{application,test}}.
+{{exported_services,{application,test,"1.0.0"}},["adder","glurk"],{application,test,"1.0.0"}}.
+{{specification,{application,test,"1.0.0","adder"}},{{spec,"adder.service_spec"},{num_instances,1},{num_processes,10},{nodes,[]}},{application,test,"1.0.0"}}.
+{{specification,{application,test,"1.0.0","glurk"}},{{spec,"glurk.service_spec"},{num_instances,3},{num_processes,33},{nodes,['glurk@asus']}},{application,test,"1.0.0"}}.	     		
+{{exported_services,{application,test,"1.0.1"}},["adder"],{application,test,"1.0.1"}}.
+{{specification,{application,test,"1.0.1","adder"}},{{spec,"adder.service_spec"},{num_instances,2},{num_processes,10},{nodes,[]}},{application,test,"1.0.1"}}.

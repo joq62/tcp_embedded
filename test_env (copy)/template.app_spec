@@ -1,0 +1,9 @@
+{{vsn,{application,test},["1.0.0"],{application,test}}.
+{{exported_services,{application,test,"1.0.0"},["adder"],{application,test,"1.0.0"}}.
+{{specification,{application,test,"1.0.0"},
+		[{"adder",[{spec,"adder.service_spec"},
+		 {num_instances,1},
+		 {num_processes,10},
+		 {nodes,[]|[node_1,node_N]}
+		]}],
+		{application,test,"1.0.0"}}.

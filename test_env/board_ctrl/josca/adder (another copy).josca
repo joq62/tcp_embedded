@@ -1,0 +1,8 @@
+{specification, "adder"}.
+{type,application}.
+{description, "adder" }.
+{vsn, "1.0.0" }.
+{application_id,"adder"}.
+{services,[{{service,"adder_service"},
+	    {num_instances,1},
+	    {node_str,[]}}]}.

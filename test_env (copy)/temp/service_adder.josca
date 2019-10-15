@@ -1,0 +1,6 @@
+{service, "adder"}.
+{description, "Specification file for service" }.
+{vsn, "1.0.0" }.
+{exported_services,["adder"]}.
+{needed_capabilities,[]}.
+{dependencies,[]}.

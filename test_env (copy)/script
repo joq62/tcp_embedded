@@ -1,0 +1,103 @@
+{ok,L}=file:consult("test.app_spec").
+ets:new(jos,[public,set,named_table]).
+ets:insert(jos,L).
+R=ets:match(jos,{{specification,{application,test,'_','_'}},'$1','$2'}).
+[X|Y]=R.
+Service="adder".
+[[{{service,S1},{spec,S2},{num_instances,N1},{num_processes,N2},{nodes,N3}},App]||[{{service,S1},{spec,S2},{num_instances,N1},{num_processes,N2},{nodes,N3}},App]<-R,S1==Service].
+[{{service,S1},{nodes,N3}}||[{{service,S1},{spec,S2},{num_instances,N1},{num_processes,N2},{nodes,N3}},App]<-R,S1==Service].
+
+
+[{{service,S1},{spec,S2},{num_instances,N1},{num_processes,N2},{nodes,N3}},App]=X.
+
+1> {ok,L}=file:consult("test.app_spec").
+{ok,[{{vsn,{application,test}},
+      ["1.0.1","1.0.0"],
+      {application,test}},
+     {{exported_services,{application,test,"1.0.0"}},
+      ["adder","glurk"],
+      {application,test,"1.0.0"}},
+     {{specification,{application,test,"1.0.0","adder"}},
+      {{service,"adder"},
+       {spec,"adder.service_spec"},
+       {num_instances,1},
+       {num_processes,10},
+       {nodes,[]}},
+      {application,test,"1.0.0"}},
+     {{specification,{application,test,"1.0.0","glurk"}},
+      {{service,"glurk"},
+       {spec,"glurk.service_spec"},
+       {num_instances,3},
+       {num_processes,33},
+       {nodes,[glurk@asus]}},
+      {application,test,"1.0.0"}},
+     {{exported_services,{application,test,"1.0.1"}},
+      ["adder"],
+      {application,test,"1.0.1"}},
+     {{specification,{application,test,"1.0.1","adder"}},
+      {{service,"adder"},
+       {spec,"adder.service_spec"},
+       {num_instances,2},
+       {num_processes,10},
+       {nodes,[]}},
+      {application,test,"1.0.1"}}]}
+2> ets:new(jos,[public,set,named_table]).
+jos
+3> ets:insert(jos,L).
+true
+4> R=ets:match(jos,{{specification,{application,test,"1.0.0",'_'}},'$1','$2'}).
+[[{{service,"glurk"},
+   {spec,"glurk.service_spec"},
+   {num_instances,3},
+   {num_processes,33},
+   {nodes,[glurk@asus]}},
+  {application,test,"1.0.0"}],
+ [{{service,"adder"},
+   {spec,"adder.service_spec"},
+   {num_instances,1},
+   {num_processes,10},
+   {nodes,[]}},
+  {application,test,"1.0.0"}]]
+5> [X|_]=R.
+[[{{service,"glurk"},
+   {spec,"glurk.service_spec"},
+   {num_instances,3},
+   {num_processes,33},
+   {nodes,[glurk@asus]}},
+  {application,test,"1.0.0"}],
+ [{{service,"adder"},
+   {spec,"adder.service_spec"},
+   {num_instances,1},
+   {num_processes,10},
+   {nodes,[]}},
+  {application,test,"1.0.0"}]]
+6> X.
+[{{service,"glurk"},
+  {spec,"glurk.service_spec"},
+  {num_instances,3},
+  {num_processes,33},
+  {nodes,[glurk@asus]}},
+ {application,test,"1.0.0"}]
+7> [S,A]=X.                        
+[{{service,"glurk"},
+  {spec,"glurk.service_spec"},
+  {num_instances,3},
+  {num_processes,33},
+  {nodes,[glurk@asus]}},
+ {application,test,"1.0.0"}]
+8> S.
+{{service,"glurk"},
+ {spec,"glurk.service_spec"},
+ {num_instances,3},
+ {num_processes,33},
+ {nodes,[glurk@asus]}}
+9> A.
+{application,test,"1.0.0"}
+10> lists:keyfind({service,"glurk"},1,X).
+{{service,"glurk"},
+ {spec,"glurk.service_spec"},
+ {num_instances,3},
+ {num_processes,33},
+ {nodes,[glurk@asus]}}
+11>                                      
+

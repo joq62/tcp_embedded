@@ -1,0 +1,12 @@
+1) teplate for services 
+2) adder + dbase test applications incl unit test programs
+3) controller that manage to load_start and stop and unload 
+4) test application to manually helps to conncet and send/receive message from erlang shell
+5) create automatic test suite program that s uses the unit test programs related to 
+6) introduce log function , test manually and introduce in test suit 
+7) test controller, adder , dbase
+8) create an test app that uses adder , dbase and should manage if nodes dies or restarts
+
+9) Create new service 
+10) manual test
+11) inklude in test suit (CI/CD)

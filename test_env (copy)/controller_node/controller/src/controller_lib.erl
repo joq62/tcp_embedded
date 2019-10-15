@@ -1,0 +1,277 @@
+%%% -------------------------------------------------------------------
+%%% Author  : uabjle
+%%% Description : dbase using dets 
+%%%
+%%% Created : 10 dec 2012
+%%% -------------------------------------------------------------------
+-module(controller_lib).
+ 
+
+
+%% --------------------------------------------------------------------
+%% Include files
+%% --------------------------------------------------------------------
+
+%% --------------------------------------------------------------------
+-define(OS_CMD_1000,1000).
+
+-define(GITHUB,"/home/pi/erlang/erlang_embedded_system_1/github").
+-define(UPDATE_SERVICE(Service,ServiceInfoRecord),controller_lib:update({service,Service},ServiceInfoRecord)).
+
+-record(service_info,{service,pid_service,node_board,node_service}).
+
+
+%% External exports
+%-compile(export_all).
+
+-export([load_start/2,stop_unload/4,
+	 create/4,update/2,member/2
+	]).
+
+
+%% ====================================================================
+%% External functions
+%% ===================================================================
+
+create(Service,PidService,NodeBoard,NodeService)->
+    #service_info{service=Service,pid_service=PidService,node_board=NodeBoard,node_service=NodeService}.
+
+update({service,Service},ServiceInfoRecord)->
+    ServiceInfoRecord#service_info{service=Service};
+update({pid,PidService},ServiceInfoRecord)->
+    ServiceInfoRecord#service_info{pid_service=PidService};
+update({node_board,NodeBoard},ServiceInfoRecord)->
+    ServiceInfoRecord#service_info{node_board=NodeBoard};
+update({node_service,NodeService},ServiceInfoRecord)->
+    ServiceInfoRecord#service_info{node_service=NodeService}.
+
+
+member({service,Service},ListOfServices)->
+    R1=[ServiceInfo||ServiceInfo<-ListOfServices,
+		     Service==ServiceInfo#service_info.service],
+    Result= case R1 of
+		[]->
+		    false;
+		R1 ->
+		    {true,R1}
+	    end,
+    Result.
+
+
+
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
+load_start(Service,BoardNode)->
+    Result=case check_del_service_dir(Service,BoardNode) of
+	       ok->
+		   case clone_compile(Service,BoardNode) of
+		       ok->
+			   case create_worker_node(Service,BoardNode) of
+			       {ok,WorkerNode}->
+				   case start_service(WorkerNode,Service) of
+				       {ok,PidService}->
+					   {ok,PidService,WorkerNode};
+				       {badrpc,Err}->
+					   {badrpc,Err};
+				       {error,Err} ->
+					   {error,Err}
+				   end;
+			       {error,Err} ->
+				   {error,Err}
+			   end;
+		       {error,Err} ->
+			   {error,Err}
+		   end;
+	       {error,Err} ->
+		   {error,Err}
+	   end,
+    Result.
+
+stop_unload(PidService,Service,WorkerNode,BoardNode)->
+    % Stop the service and unload 
+    Result=case stop_service_node(PidService,WorkerNode) of
+	       ok->
+		   unload_service(Service,BoardNode);
+	       {error,Err}->
+		   {error,Err}
+	   end,
+    Result.
+
+%% --------------------------------------------------------------------
+%%% Internal functions
+%% --------------------------------------------------------------------
+%% --------------------------------------------------------------------
+%% Function: unload_service(Service,BoardNode)
+%% Description:
+%% Returns:ok|{error,Err}
+%% --------------------------------------------------------------------
+unload_service(Service,BoardNode)->
+    rpc:call(BoardNode,os,cmd,["rm -rf "++Service],5000),
+    timer:sleep(1000),
+    Result = case rpc:call(BoardNode,filelib,is_dir,[Service]) of
+		 false->
+		     ok;
+		 true->
+		     {error,[not_deleted_dir,Service,?MODULE,?LINE]};
+		 {badrpc,Err}->
+		     {error,[badrpc,Err,?MODULE,?LINE]};
+		 X ->
+		     {error,[unmatched_signal,X,?MODULE,?LINE]}
+	     end,
+    Result.
+%% --------------------------------------------------------------------
+%% Function:stop_service_node(Service,WorkerNode)
+%% Description:
+%% Returns:ok|{error,Err}
+%% --------------------------------------------------------------------
+stop_service_node(PidService,WorkerNode)->  
+    PidService!{self(),{glurk,noreply,stop}},
+    Result=case rpc:call(WorkerNode,init,stop,[],5000) of
+	       ok->
+		   ok;
+	       {badrpc,Err}->
+		   {error,[badrpc,Err,?MODULE,?LINE]};
+	       X ->
+		   {error,[unmatched_signal,X,?MODULE,?LINE]}
+	   end,
+    Result.
+%% --------------------------------------------------------------------
+%% Function:create_worker_node(Service,BoardNode)
+%% Description:
+%% Returns:{ok,PidService}|{error,Err}
+%% --------------------------------------------------------------------
+start_service(WorkerNode,Service)->
+    Result=case rpc:call(WorkerNode,list_to_atom(Service),start,[],5000) of
+	       {badrpc,Err} ->
+		   {error,[badrpc,Err,?MODULE,?LINE]};
+	       {ok,PidService}->
+		   PidService!{self(),{ping_cmd,reply,ping}},   
+		   receive
+		       {PidService,{ping_cmd,pong}}->
+			   {ok,PidService};
+		       Err->
+			   {error,[unmatched_signal,Err,?MODULE,?LINE]}
+		   after 5000->
+			   {error,[timout,PidService,?MODULE,?LINE]}
+			       
+   
+		   end
+	   end,
+    Result.
+
+%% --------------------------------------------------------------------
+%% Function:create_worker_node(Service,BoardNode)
+%% Description:
+%% Returns:{ok,WorkerNode}|{error,Err}
+%% --------------------------------------------------------------------
+create_worker_node(Service,BoardNode)->
+    case net_adm:ping('1_adder@asus') of
+	pang->
+	    {ok,WorkerNodeName}={ok,integer_to_list(1)};
+	pong->
+	    {ok,WorkerNodeName}={ok,integer_to_list(2)}
+    end,
+    {ok,HostName}=inet:gethostname(),
+    UniqueNodeName=WorkerNodeName++"_"++Service,
+    WorkerNode=list_to_atom(UniqueNodeName++"@"++HostName),
+    Result=case rpc:call(BoardNode,os,cmd,["erl -pa "++Service++"/* "++"-sname "++UniqueNodeName++" -detached"]) of
+	       []->
+		   timer:sleep(1000),
+		   case net_adm:ping(WorkerNode) of
+		       pong->
+			   {ok,WorkerNode};
+		       pang->
+			   {error,nodedown}
+		   end;
+	       {badrpc,nodedown} ->
+		   {error,nodedown};
+	       Err->
+		   {error,Err}
+	   end,
+    Result.
+
+
+%% --------------------------------------------------------------------
+%% Function:clone_compile(Service,BoardNode)
+%% Description:
+%% Returns: ok|{erro,compile_info}|{error,nodedown}
+%% --------------------------------------------------------------------
+check_del_service_dir(Service,BoardNode)->
+    Result=case rpc:call(BoardNode,filelib,is_dir,[Service],5000) of
+	       true->
+		   case rpc:call(BoardNode,os,cmd,["rm -rf "++Service]) of
+		       []->
+			   timer:sleep(?OS_CMD_1000),
+			   ok;
+		       {badrpc,nodedown} ->
+			   {error,nodedown};
+		       Err->
+			   {error,Err}
+		   end;
+	       false->
+		   ok;
+	       {badrpc,nodedown} ->
+		   {error,nodedown};
+	       Err->
+		   {error,Err}
+	   end,
+    Result.
+
+%% --------------------------------------------------------------------
+%% Function:clone_compile(Service,BoardNode)
+%% Description:
+%% Returns: ok|{erro,compile_info}|{error,nodedown}
+%% --------------------------------------------------------------------
+clone_compile(Service,BoardNode)->
+    Result=case clone(Service,BoardNode) of
+	       ok->
+		   compile_erl(filename:join(Service,"src"),filename:join(Service,"ebin"),BoardNode);
+	       {badrpc,nodedown}->
+		   {error,nodedown};
+	       Err->
+		   io:format(" ~p~n",[{?MODULE,?LINE,Err}]),
+		   {error,[compiler_error,Err,?MODULE,?LINE]}
+	   end,
+    Result.
+    
+
+clone(Service,BoardNode)->
+    Path=filename:join(?GITHUB,Service),
+    Result=case rpc:call(BoardNode,os,cmd,["cp -r "++Path++" ."]) of
+	       []->
+		   ok;
+	       {badrpc,nodedown}->
+		   {error,nodedown};
+	       Err->
+		   {error,Err}
+	   end,
+    Result.
+
+compile_erl(Src,Dest,BoardNode)->
+  %  io:format("~p~n",[{?MODULE,?LINE,Src,Dest,BoardNode}]),
+    Result=case rpc:call(BoardNode,file,list_dir,[Src]) of
+	       {ok,Files}->
+		   FilesToCompile=[filename:join(Src,File)||File<-Files,filename:extension(File)==".erl"],
+		   case rpc:call(BoardNode,os,cmd,["rm  "++Dest++"/*"]) of
+		       []->
+			   CompileResult=[{rpc:call(BoardNode,c,c,[ErlFile,[{outdir,Dest}]],5000),ErlFile}||ErlFile<-FilesToCompile],
+			   case [{R,File}||{R,File}<-CompileResult,error==R] of
+			       []->
+				   ok;
+			       CompilerErrors->
+				   {error,[compiler_error,CompilerErrors,?MODULE,?LINE]}
+			   end;
+		       {badrpc,nodedown}->
+			   {error,nodedown};
+		       Err->
+			   {error,Err}
+		   end;
+	       {badrpc,nodedown}->
+		   {error,nodedown};
+	       Err->
+		   {error,Err}
+	   end,
+    Result.

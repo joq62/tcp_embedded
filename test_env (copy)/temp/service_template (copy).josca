@@ -1,0 +1,7 @@
+{specification, service_template}.
+{type,service}.
+{description, "Josca file for service" }.
+{vsn, "1.0.0" }.
+{exported_services,["service_id"]}.
+{needed_capabilities,[]}.
+{dependencies ,[]}.

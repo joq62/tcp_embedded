@@ -1,0 +1,51 @@
+erl -sname brd_ctrl
+
+rpc:call('brd_w1@asus',os,cmd,["cp -r ../../services/adder ."]).
+rpc:call('brd_w1@asus',os,cmd,["erl -pa adder/* -sname wt1 -detached"]).
+net_adm:ping('brd_w1@asus').
+rpc:call('wt1@asus',adder,start,[]).
+rpc:call('wt1@asus',test_adder,start,[['wt1@asus']]).
+rpc:call('wt1@asus',init,stop,[]).
+rpc:call('brd_w1@asus',init,stop,[]).
+
+
+rpc:call('brd_w2@asus',os,cmd,["cp -r ../services/adder ."]).
+
+
+
+rpc:call('brd_w2@asus',os,cmd,["erl -pa adder/* -sname wt2 -detached"]).
+
+net_adm:ping('brd_w1@asus').
+net_adm:ping('brd_w2@asus').
+
+net_adm:ping('wt1@asus').
+
+net_adm:ping('wt2@asus').
+
+
+
+
+rpc:call('brd_w2@asus',init,stop,[]).
+
+rpc:call('wt2@asus',init,stop,[]).
+
+
+
+**************************************************
+os:cmd("erl -pa wt1/adder/* -sname wt1 -detached").
+
+os:cmd("erl -pa wt2/adder/* -sname wt2 -detached").
+
+net_adm:ping('wt1@asus').
+
+net_adm:ping('wt2@asus').
+
+rpc:call('wt1@asus',test_adder,start,[]).
+
+rpc:call('wt2@asus',test_adder,start,[]).
+
+rpc:call('wt1@asus',init,stop,[]).
+rpc:call('wt2@asus',init,stop,[]).
+
+os:cmd("cp -r ../services/adder wt1").
+os:cmd("rm -r wt1/adder").

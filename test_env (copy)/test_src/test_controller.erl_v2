@@ -1,0 +1,180 @@
+%%% -------------------------------------------------------------------
+%%% Author  : Joq Erlang
+%%% Description : Controller to home automation 
+%%% Controller shall
+%%% Created : 15 Sept 2019
+%%% -------------------------------------------------------------------
+-module(test_controller).
+
+%% --------------------------------------------------------------------
+%% Include files
+%% --------------------------------------------------------------------
+
+-define(GITHUB,"/home/pi/erlang/erlang_embedded_system_1/github").
+%% --------------------------------------------------------------------
+ 
+%% --------------------------------------------------------------------
+%% Key Data structures
+%% 
+%% --------------------------------------------------------------------
+
+
+%% --------------------------------------------------------------------
+
+
+%% ====================================================================
+%% External functions
+%% ====================================================================
+
+
+-export([start/0
+	 ]).
+
+%% ====================================================================
+%% Server functions
+%% ====================================================================
+
+%% --------------------------------------------------------------------
+%% Function: init/1
+%% Description: Initiates the server
+%% Returns: {ok, State}          |
+%%          {ok, State, Timeout} |
+%%          ignore             
+%%          {stop, Reason}
+%
+%% --------------------------------------------------------------------
+start()->
+
+    many_times(500),
+    init:stop().
+
+many_times(0)->
+    ok;
+many_times(N)->
+    io:format("~p~n",[{?MODULE,?LINE,N}]),
+    pong=net_adm:ping('brd_1@asus'),
+    pong=net_adm:ping('brd_2@asus'),
+    pong=net_adm:ping('brd_ctrl@asus'),
+    load_start("controller",'brd_ctrl@asus'),
+    timer:sleep(500),
+    many_times(N-1).
+
+   % ok.
+
+load_start(Service,BoardNode)->
+    % ok|{error,Err}=check_del_service_dir(Service,BoardNode)
+    % Check if service already loaded, rolling upgrade ?
+     case rpc:call(BoardNode,filelib,is_dir,[Service],5000) of
+	true->
+	    rpc:call(BoardNode,os,cmd,["rm -rf "++Service]);
+	false->
+	     ok;
+	 Err ->
+	     {error,Err}
+	     % timeout or other problems 
+	     % Stop the procedure and report error 
+		 
+    end,
+    timer:sleep(1000),
+
+    % ok|{erro,compile_info}|{error,connectivity}=clone_compile(Service,BoardNode)
+    %Download latest service from github and complie
+    clone(Service),
+    glurk=compile_erl(filename:join(Service,"src"),filename:join(Service,"ebin")),
+
+    % {ok,WorkerNode}|{error,Err}=create_worker_node(Service,BoardNode) 
+    % Create an unique erlang worker node acts like a pod  
+    {ok,WorkerNodeName}=get_worker_node(BoardNode),
+    {ok,HostName}=inet:gethostname(),
+    UniqueNodeName=WorkerNodeName++"_"++Service,
+    WorkerNode=list_to_atom(UniqueNodeName++"@"++HostName),
+    []=rpc:call(BoardNode,os,cmd,["erl -pa "++Service++"/* "++"-sname "++UniqueNodeName++" -detached"]),
+    timer:sleep(1000),
+    pong=net_adm:ping(WorkerNode),
+
+    % {ok,PidService}|{error,Err}=start_service(WorkerNode,Service)
+    % start the service 
+    PidCtrl=rpc:call(WorkerNode,list_to_atom(Service),start,[],5000),
+    PidCtrl!{self(),{ping_cmd,reply,ping}},   
+    receive
+	{PidCtrl,{ping_cmd,R}}->
+		pong=R;
+	     X->
+		io:format("~p~n",[{?MODULE,?LINE,X}])
+    after 5000->
+	    io:format("timeout ~n")	
+    end,    
+    stop_unload(PidCtrl,Service,WorkerNode,BoardNode).
+
+stop_unload(PidCtrl,Service,WorkerNode,BoardNode)->
+    % Stop the service and unload 
+    PidCtrl!{self(),{glurk,noreply,stop}},
+    rpc:call(WorkerNode,init,stop,[],5000),
+    rpc:call(BoardNode,os,cmd,["rm -rf "++Service],5000),
+    timer:sleep(1000).
+ %   io:format("~p~n",[{?MODULE,?LINE}]).
+    
+
+
+
+%% --------------------------------------------------------------------
+%%% Internal functions
+%% --------------------------------------------------------------------
+check_del_service_dir(Service,BoardNode)->
+    Result=case rpc:call(BoardNode,filelib,is_dir,[Service],5000) of
+	       true->
+		   case rpc:call(BoardNode,os,cmd,["rm -rf "++Service]) of
+		       []->
+			   timer:sleep(?OS_CMD_1000),
+			   ok;
+		       {badrpc,nodedown} ->
+			   {error,nodedown};
+		       Err->
+			   {error,Err}
+		   end;
+	       false->
+		   ok;
+	       {badrpc,nodedown} ->
+		   {error,nodedown};
+	       Err->
+		   {error,Err}
+	   end,
+    Result.
+
+%% --------------------------------------------------------------------
+%% Function:clone_compile(Service,BoardNode)
+%% Description:
+%% Returns: ok|{erro,compile_info}|{error,nodedown}
+%% --------------------------------------------------------------------
+clone_compile(Service,BoardNode)->
+    clone(Service,BoardNode),
+    glurk=compile_erl(filename:join(Service,"src"),filename:join(Service,"ebin"),BoardNode).
+    
+
+
+
+
+
+clone(Service,BoardNode)->
+    Path=filename:join(?GITHUB,Service),
+    []=rpc:call(BoardNode,os,cmd,["cp -r "++Path++" ."]),
+    ok.
+
+compile_erl(_Src,_Dest,_BoardNode)->
+    glurk.
+   
+
+%% --------------------------------------------------------------------
+%% Internal functions
+%% --------------------------------------------------------------------
+compile_erl(_Src,_Dest)->
+    glurk.
+
+clone(Service)->
+    Path=filename:join(?GITHUB,Service),
+    []=rpc:call('brd_ctrl@asus',os,cmd,["cp -r "++Path++" ."]),
+    ok.
+    
+get_worker_node(_BoardNode)->
+    % Check if availible nodes names are 1- 10 use queue pick first then put is back 
+    {ok,integer_to_list(1)}.

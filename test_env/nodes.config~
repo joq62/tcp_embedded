@@ -1,0 +1,2 @@
+{{node,'brd_1@asus'},{capabilities,[disk,tellstick]},{status,inactive}}.
+{node'brd_2@asus'},{capabilities,[]},{status,inactive}}.

@@ -1,0 +1,4 @@
+{my_ip_addr,{"localhost",10010}}.
+{controller_instances,[{{"localhost",10000},'pod_controller@asus']}.
+{pod_controller,['pod_controller@asus']}.
+{files_dirs_to_keep,["Makefile","node.config","nodes.config","nodes_simple.config","node_controller","josca"]}.

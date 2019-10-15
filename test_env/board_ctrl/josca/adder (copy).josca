@@ -1,0 +1,11 @@
+{specification, "glurk"}.
+{type,application}.
+{description, "glurk" }.
+{vsn, "1.0.0" }.
+{application_id,"glurk"}.
+{services,[{{service,"glurk_service"},
+	    {num_instances,2},
+	    {node_str,["node_worker1@asus"]}},
+	    {{service,"2_glurk_service"},
+	    {num_instances,23},
+	    {node_str,["node_worker2@asus"]}}]}.

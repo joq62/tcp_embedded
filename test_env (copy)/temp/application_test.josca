@@ -1,0 +1,10 @@
+{application,app_test}.
+{description, "Josca file testing controller" }.
+{vsn, "1.0.0" }.
+{exported_services,["adder"]}.
+{service_def,[{"adder",
+		[{josca,"service_adder.josca"},
+		 {num_instances,num_inst_1},
+		 {num_processes,num_proc_1},
+		 {nodes,any}
+		]}]}.

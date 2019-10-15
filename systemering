@@ -1,0 +1,6 @@
+Pod = erlang node
+Service = erlang gen_service
+communication= rpc:calls or process signals
+
+
+

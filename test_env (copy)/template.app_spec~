@@ -1,0 +1,10 @@
+{application,test}.
+{description, "Specification file for test" }.
+{vsn, "1.0.0" }.
+{exported_services,["adder"]}.
+{service_def,[{"adder",
+		[{spec,"adder.service_spec"},
+		 {num_instances,1},
+		 {num_processes,10},
+		 {nodes,any}
+		]}]}.

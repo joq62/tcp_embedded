@@ -1,0 +1,14 @@
+{ok,P}=test_controller:start().
+monitor(process,P).
+P!{self(),{add,20,22}}.
+flush().
+P!{self(),stop}.
+flush().
+
+P!{self(),{add2,20,0}}.
+flush().
+P!{self(),stop}.
+flush().
+
+
+

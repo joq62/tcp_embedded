@@ -1,0 +1,31 @@
+{{status,'brd_1@asus'},inactive}.
+{{capabilities,disk,'brd_1@asus'},disk}.
+{{capabilities,tellstick,'brd_1@asus'},tellstick}.
+{{zone,'brd_1@asus'},varmdoe}.
+{{status,'brd_2@asus'},inactive}.
+{{capabilities,[],'brd_2@asus'},[]}.
+{{zone,'brd_2@asus'},sthlm}.
+
+1) {status,inactive/active nodes} -> nodes
+2) {capabilities
+
+{zone,X}-> zones
+3) 
+
+> ets:match(nodeConf,{'$1','$2',brd_1@asus}).
+[[{disk,brd_1@asus},disk],
+ [{tellstick,brd_1@asus},tellstick],
+ [{status,brd_1@asus},inactive],
+ [{zone,brd_1@asus},varmdoe]]
+5> ets:match(nodeConf,{'$1','$2',brd_2@asus}).
+[[{zone,brd_2@asus},sthlm],
+ [{status,brd_2@asus},inactive],
+ [{[],brd_2@asus},[]]]
+6> ets:match(nodeConf,{'$1',active,brd_2@asus}).
+[]
+7> ets:match(nodeConf,{'$1',inactive,brd_2@asus}).
+[[{status,brd_2@asus}]]
+8> ets:match(nodeConf,{'_','$1',brd_2@asus}).     
+[[sthlm],[inactive],[[]]]
+9> 
+

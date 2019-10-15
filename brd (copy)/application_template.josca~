@@ -1,0 +1,11 @@
+{specification, app_adder}.
+{type,application}.
+{description, "Josca file for adder app" }.
+{vsn, "1.0.0" }.
+{exported_services,[]}.
+{application_id,"na"}.
+{num_instances,1}.
+{zone,[]}.
+{geo_red,[]}.
+{needed_capabilities,[]}.
+{dependencies ,["adder.josca"]}.

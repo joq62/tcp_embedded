@@ -1,0 +1,8 @@
+{specification, service_template}.
+{type,service}.
+{description, "Josca file for service" }.
+{vsn, "1.0.0" }.
+{exported_services,["service_id"]}.
+{files,["service.erl","service_lib.erl","common.hrl","hw.py"]}.
+{needed_capabilities,[]}.
+{dependencies ,[]}.

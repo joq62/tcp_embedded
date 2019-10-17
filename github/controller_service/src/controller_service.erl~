@@ -4,39 +4,47 @@
 %%%  
 %%% Created : 10 dec 2012
 %%% -------------------------------------------------------------------
--module(lib_service). 
+-module(controller_service).
 
 -behaviour(gen_server).
 %% --------------------------------------------------------------------
 %% Include files
 %% --------------------------------------------------------------------
 
-%% --------------------------------------------------------------------
 
+%% --------------------------------------------------------------------
+ 
 %% --------------------------------------------------------------------
 %% Key Data structures
 %% 
 %% --------------------------------------------------------------------
--record(state,{tcp_servers}).
+-record(state,{}).
 
+% {{service,Service},{pid,PidService},{node_board,NB},{node_service,NS}}
 
-%% --------------------------------------------------------------------
-%% Definitions 
--define(HB_INTERVAL,1*20*1000).
--define(NODE_CONFIG,"node.config").
+	  
 %% --------------------------------------------------------------------
 
+%% ====================================================================
+%% External functions
+%% ====================================================================
 
 
+%% user interface
+-export([
+	 
+	]).
 
--export([start_tcp_server/2,stop_tcp_server/1
+%% intermodule 
+-export([get_nodes/0,
+	 create_pod/2,delete_pod/2,get_pods/0,
+	 create_container/3,delete_container/3
 	]).
 
 -export([start/0,
-	 stop/0,
-	 heart_beat/1
-	]).
-
+	 stop/0
+	 ]).
+%% internal 
 %% gen_server callbacks
 -export([init/1, handle_call/3,handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -47,25 +55,29 @@
 
 %% Asynchrounus Signals
 
-
-
-%% Gen server functions
+%% Gen server function
 
 start()-> gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 
+%%-----------------------------------------------------------------------
+get_nodes()->
+    gen_server:call(?MODULE, {get_nodes},infinity).
+
+get_pods()->
+    gen_server:call(?MODULE, {get_pods},infinity).
+create_pod(Node,PodId)->
+    gen_server:call(?MODULE, {create_pod,Node,PodId},infinity).
+delete_pod(Node,PodId)->
+    gen_server:call(?MODULE, {delete_pod,Node,PodId},infinity).
+
+create_container(Pod,PodId,Service)->
+    gen_server:call(?MODULE, {create_container,Pod,PodId,Service},infinity).
+delete_container(Pod,PodId,Service)->
+    gen_server:call(?MODULE, {delete_container,Pod,PodId,Service},infinity).
 
 %%-----------------------------------------------------------------------
-start_tcp_server(Port,Mode)->
-    gen_server:call(?MODULE, {start_tcp_server,Port,Mode},infinity).
-
-stop_tcp_server(Port)->
-    gen_server:call(?MODULE, {stop_tcp_server,Port},infinity).
-%%-----------------------------------------------------------------------
-
-heart_beat(Interval)->
-    gen_server:cast(?MODULE, {heart_beat,Interval}).
 
 
 %% ====================================================================
@@ -82,10 +94,8 @@ heart_beat(Interval)->
 %
 %% --------------------------------------------------------------------
 init([]) ->
-    
-    spawn(fun()->h_beat(?HB_INTERVAL) end),
-	
-    {ok, #state{tcp_servers=[]}}.   
+    io:format("Dbg ~p~n",[{?MODULE, application_started}]),
+    {ok, #state{}}.   
     
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -98,58 +108,35 @@ init([]) ->
 %%          {stop, Reason, State}            (aterminate/2 is called)
 %% --------------------------------------------------------------------
 
-handle_call({start_tcp_server,Port,Mode}, _From, State) ->
-    TcpServers=State#state.tcp_servers,
-    Reply=case lists:keyfind(Port,1,TcpServers) of
-	      false->
-		  case Mode of
-		      sequence->
-			  case tcp_server:start_seq_server(Port) of
-			      {error,Err}->
-				  NewState=State,
-				  {error,Err};
-			      Pid->
-				  NewState=State#state{tcp_servers=[{Port,Pid}|TcpServers]},
-				  ok
-			  end;
-		      parallell->
-			  case tcp_server:start_par_server(Port) of
-			      {error,Err}->
-				  NewState=State,
-				  {error,Err};
-			      Pid->
-				  NewState=State#state{tcp_servers=[{Port,Pid}|TcpServers]},
-				  ok
-			  end;
-		      Err->
-			  NewState=State,
-			  {error,Err}
-		  end;
-	      {Port,_}->
-		  NewState=State,
-		  {error,[already_started,Port,?MODULE,?LINE]}
-	  end,
-    {reply, Reply, NewState};
+handle_call({get_nodes}, _From, State) ->
+    Reply=rpc:call(node(),controller,get_nodes,[],5000),
+    {reply, Reply, State};
 
+handle_call({get_pods}, _From, State) ->
+    Reply=rpc:call(node(),controller,get_pods,[],5000),
+    {reply, Reply, State};
 
-handle_call({stop_tcp_server,Port}, _From, State) ->
-    TcpServers=State#state.tcp_servers,
-    Reply=case lists:keyfind(Port,1,TcpServers) of
-	      false->
-		  NewState=State,
-		  {error,[not_started,Port,?MODULE,?LINE]};
-	      {Port,Pid}->
-		  Pid!{self(),terminate},
-		  NewState=State#state{tcp_servers=lists:delete({Port,Pid},TcpServers)},
-		  {ok,stopped}
-	  end,
-    {reply, Reply, NewState};
+handle_call({create_pod,Pod,Service}, _From, State) ->
+    Reply=rpc:call(node(),controller,create_pod,[Pod,Service],15000),
+    {reply, Reply, State};
+
+handle_call({delete_pod,Pod,Service}, _From, State) ->
+    Reply=rpc:call(node(),controller,delete_pod,[Pod,Service],15000),
+    {reply, Reply, State};
+
+handle_call({create_container,Pod,PodId,Service}, _From, State) ->
+    Reply=rpc:call(node(),controller,create_container,[Pod,PodId,Service],15000),
+    {reply, Reply, State};
+
+handle_call({delete_container,Pod,PodId,Service}, _From, State) ->
+    Reply=rpc:call(node(),controller,delete_container,[Pod,PodId,Service],15000),
+    {reply, Reply, State};
 
 handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
 
 handle_call(Request, From, State) ->
-    Reply = {unmatched_signal,?MODULE,Request,From},
+    Reply = {unmatched_signal,?MODULE,?LINE,Request,From},
     {reply, Reply, State}.
 
 %% --------------------------------------------------------------------
@@ -159,10 +146,6 @@ handle_call(Request, From, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
-handle_cast({heart_beat,Interval}, State) ->
-
-    spawn(fun()->h_beat(Interval) end),    
-    {noreply, State};
 
 handle_cast(Msg, State) ->
     io:format("unmatched match cast ~p~n",[{?MODULE,?LINE,Msg}]),
@@ -174,7 +157,7 @@ handle_cast(Msg, State) ->
 %% Returns: {noreply, State}          |
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
-%% --------------------------------------------------------------------
+
 handle_info(Info, State) ->
     io:format("unmatched match info ~p~n",[{?MODULE,?LINE,Info}]),
     {noreply, State}.
@@ -204,17 +187,12 @@ code_change(_OldVsn, State, _Extra) ->
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
-h_beat(Interval)->
-    timer:sleep(Interval),
-    rpc:cast(node(),?MODULE,heart_beat,[Interval]).
+
 
 %% --------------------------------------------------------------------
 %% Internal functions
 %% --------------------------------------------------------------------
 
 %% --------------------------------------------------------------------
-%% Function: 
-%% Description:
-%% Returns: non
+%% Internal functions
 %% --------------------------------------------------------------------
-

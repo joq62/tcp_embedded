@@ -1,0 +1,95 @@
+%%% -------------------------------------------------------------------
+%%% Author  : uabjle
+%%% Description : dbase using dets 
+%%%
+%%% Created : 10 dec 2012
+%%% -------------------------------------------------------------------
+-module(node_config).
+  
+
+
+%% --------------------------------------------------------------------
+%% Include files
+%% --------------------------------------------------------------------
+
+%% --------------------------------------------------------------------
+
+%% External exports
+
+
+-export([start/1
+	]).
+
+
+%% ====================================================================
+%% External functions
+%% ====================================================================
+
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
+
+start(FileName)->
+    {ok,I}=file:consult(FileName),
+    EtsList=create_ets_list(I,[]),
+    ets:new(nodes, [set, named_table]),
+    ets:insert(nodes,EtsList),
+        % zone all
+    [["node_worker1@asus","sthlm.lgh.room1"],
+     ["node_worker3@asus","varmdeo.main.room2"],
+     ["node_controller1@asus","sthlm.lgh.room2"],
+     ["node_worker2@asus","sthlm.lgh.room2"]]=check_zone(nodes),
+      % zone specific
+    [["varmdeo.main.room2"]]=check_zone(nodes,"node_worker3@asus"),
+     % Capability 
+    [["node_worker1@asus",tellstick]]=check_capability(nodes,tellstick),
+    [["node_worker1@asus",disk]]=check_capability(nodes,disk),
+    []=check_capability(nodes,glurk),
+ %   check_ets(nodes),
+    R=ets:match(nodes,'$1'),
+    ets:delete(nodes),
+    ok.
+   % R.
+
+create_ets_list([],EtsList)->
+    EtsList;
+create_ets_list([{{node_str,N},{capabilities,C},{zone,Z}}|T],Acc)->
+    Caps=[{{Cap,N},Cap,N}||Cap<-C],
+    Zone=[{{zone,N},Z,N}],
+    NewAcc=lists:append([Caps,Zone,Acc]),
+    create_ets_list(T,NewAcc).
+
+check_zone(Ets)->
+    ets:match(Ets,{{zone,'$1'},'$2','_'}).
+check_zone(Ets,NodeStr)->
+    ets:match(Ets,{{zone,NodeStr},'$2','_'}).
+
+check_capability(Ets,Capability)->
+    ets:match(Ets,{{Capability,'$1'},'$2','_'}).
+
+check_ets(Ets)->
+    % zone all
+    [["node_worker1@asus","sthlm.lgh.room1"],
+     ["node_worker3@asus","varmdeo.main.room2"],
+     ["node_controller1@asus","sthlm.lgh.room2"],
+     ["node_worker2@asus","sthlm.lgh.room2"]]=ets:match(Ets,{{zone,'$1'},'$2','_'}),
+    % zone specific
+    [["varmdeo.main.room2"]]=ets:match(Ets,{{zone,"node_worker3@asus"},'$2','_'}),
+
+    % Capability 
+    [["node_worker1@asus",tellstick]]=ets:match(Ets,{{tellstick,'$1'},'$2','_'}),
+    [["node_worker1@asus",disk]]=ets:match(Ets,{{disk,'$1'},'$2','_'}),
+    []=ets:match(Ets,{{glurk,'$1'},'$2','_'}),
+
+  %  io:format("~p~n",[{?MODULE,?LINE,ets:match(Ets,{{zone,'$1'},'$2','_'})}]),
+    ok.
+
+
+%% --------------------------------------------------------------------
+%% Function: 
+%% Description:
+%% Returns: non
+%% --------------------------------------------------------------------
+%filter_events(Key

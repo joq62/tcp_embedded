@@ -2,7 +2,10 @@
 %%% Author  : uabjle
 %%% Description : dbase using dets 
 %%%
-%%% Created : 10 dec 2012
+%%% 2019-10-15:
+%%% io:format dont work
+%%% close tcp dont work needed to remove loop(Socket) call
+%%% Add SSL
 %%% -------------------------------------------------------------------
 -module(tcp_server).
   
@@ -42,15 +45,19 @@
 %% Returns:ok|error
 %% ------------------------------------------------------------------
 start_seq_server(Port)->
-    spawn(fun()->seq_server(Port) end),
-    ok.
+    Pid=spawn(fun()->seq_server(Port) end),
+    Pid.
 		  
 seq_server(Port)->
    Result = case gen_tcp:listen(Port,?SERVER_SETUP) of  
 	       {ok, LSock}->
-		   seq_loop(LSock);
+		    spawn(fun()->seq_loop(LSock) end),
+		    receive
+			{_Pid,terminate}->
+			    ok
+		    end;
 	       Err ->
-		   Err
+		   {error,Err}
 	    end,
     Result.
 seq_loop(LSock)->
@@ -64,14 +71,14 @@ seq_loop(LSock)->
 %% Returns:ok|error
 %% ------------------------------------------------------------------
 start_par_server(Port)->
-    spawn(fun()->par_server(Port) end),
-    ok.
+    Pid=spawn(fun()->par_server(Port) end),
+    Pid.
 par_server(Port)->
     Result = case gen_tcp:listen(Port,?SERVER_SETUP) of  
 		 {ok, LSock}->
 		     spawn(fun()-> par_connect(LSock) end),
 		     receive
-			 wait_for_ever->
+			 {_Pid,terminate}->
 			     ok
 		     end;
 		 Err ->
@@ -109,12 +116,18 @@ loop(Socket)->
 		    loop(Socket);
 		{?KEY_MSG,Pod,call,{M,F,A}}->
 		    Result=rpc:call(Pod,M,F,A,?TIMEOUT_TCPSERVER),
+	      
+		    io:format("~p~n",[{{?KEY_MSG,Pod,call,{M,F,A}},?MODULE,?LINE}]),
 		    gen_tcp:send(Socket, term_to_binary({?KEY_MSG,Result})),
 		    loop(Socket);
 		{tcp_closed, Socket} ->
+		    io:format("socket closed ~n"),
+		    init:stop(),
 		    tcp_closed;
 		Err ->
-		    io:format("error  ~p~n",[{node(),?MODULE,?LINE,Err,inet:socknames(Socket)}]),
+		    io:format("Err ~p~n",[{Err,?MODULE,?LINE}]),
+		  %  glurk=Err,
+		 %   io:format("error  ~p~n",[{node(),?MODULE,?LINE,Err,inet:socknames(Socket)}]),
 		    gen_tcp:send(Socket, term_to_binary(Err)),
 		    loop(Socket)
 	    end

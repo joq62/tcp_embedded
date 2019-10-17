@@ -1,0 +1,7 @@
+{specification, "adder_service"}.
+{type,service}.
+{description, "Josca file for service" }.
+{vsn, "1.0.0" }.
+{exported_services,["adder_service"]}.
+{needed_capabilities,[]}.
+{dependencies ,[]}.

@@ -4,7 +4,7 @@
 %%%  
 %%% Created : 10 dec 2012
 %%% -------------------------------------------------------------------
--module(lib_service). 
+-module(adder_service). 
 
 -behaviour(gen_server).
 %% --------------------------------------------------------------------
@@ -17,10 +17,8 @@
 %% Key Data structures
 %% 
 %% --------------------------------------------------------------------
--record(state,{tcp_servers}).
+-record(state,{controller_pods,sd_pods}).
 
-
-%% --------------------------------------------------------------------
 %% Definitions 
 -define(HB_INTERVAL,1*20*1000).
 -define(NODE_CONFIG,"node.config").
@@ -29,7 +27,7 @@
 
 
 
--export([start_tcp_server/2,stop_tcp_server/1
+-export([add/2
 	]).
 
 -export([start/0,
@@ -57,13 +55,11 @@ stop()-> gen_server:call(?MODULE, {stop},infinity).
 
 
 %%-----------------------------------------------------------------------
-start_tcp_server(Port,Mode)->
-    gen_server:call(?MODULE, {start_tcp_server,Port,Mode},infinity).
+add(A,B)->
+    gen_server:call(?MODULE, {add,A,B},infinity).
 
-stop_tcp_server(Port)->
-    gen_server:call(?MODULE, {stop_tcp_server,Port},infinity).
+
 %%-----------------------------------------------------------------------
-
 heart_beat(Interval)->
     gen_server:cast(?MODULE, {heart_beat,Interval}).
 
@@ -82,10 +78,11 @@ heart_beat(Interval)->
 %
 %% --------------------------------------------------------------------
 init([]) ->
-    
+    {ok,Info} = file:consult(?NODE_CONFIG),
+    {controller_pods,ControllerPods}=lists:keyfind(controller_pods,1,Info),
+    {sd_pods,SdPods}=lists:keyfind(sd_pods,1,Info),
     spawn(fun()->h_beat(?HB_INTERVAL) end),
-	
-    {ok, #state{tcp_servers=[]}}.   
+    {ok, #state{controller_pods=ControllerPods,sd_pods=SdPods}}.   
     
 %% --------------------------------------------------------------------
 %% Function: handle_call/3
@@ -98,52 +95,10 @@ init([]) ->
 %%          {stop, Reason, State}            (aterminate/2 is called)
 %% --------------------------------------------------------------------
 
-handle_call({start_tcp_server,Port,Mode}, _From, State) ->
-    TcpServers=State#state.tcp_servers,
-    Reply=case lists:keyfind(Port,1,TcpServers) of
-	      false->
-		  case Mode of
-		      sequence->
-			  case tcp_server:start_seq_server(Port) of
-			      {error,Err}->
-				  NewState=State,
-				  {error,Err};
-			      Pid->
-				  NewState=State#state{tcp_servers=[{Port,Pid}|TcpServers]},
-				  ok
-			  end;
-		      parallell->
-			  case tcp_server:start_par_server(Port) of
-			      {error,Err}->
-				  NewState=State,
-				  {error,Err};
-			      Pid->
-				  NewState=State#state{tcp_servers=[{Port,Pid}|TcpServers]},
-				  ok
-			  end;
-		      Err->
-			  NewState=State,
-			  {error,Err}
-		  end;
-	      {Port,_}->
-		  NewState=State,
-		  {error,[already_started,Port,?MODULE,?LINE]}
-	  end,
-    {reply, Reply, NewState};
+handle_call({add,A,B}, _From, State) ->
+     Reply=rpc:call(node(),adder,add,[A,B]),
+    {reply, Reply, State};
 
-
-handle_call({stop_tcp_server,Port}, _From, State) ->
-    TcpServers=State#state.tcp_servers,
-    Reply=case lists:keyfind(Port,1,TcpServers) of
-	      false->
-		  NewState=State,
-		  {error,[not_started,Port,?MODULE,?LINE]};
-	      {Port,Pid}->
-		  Pid!{self(),terminate},
-		  NewState=State#state{tcp_servers=lists:delete({Port,Pid},TcpServers)},
-		  {ok,stopped}
-	  end,
-    {reply, Reply, NewState};
 
 handle_call({stop}, _From, State) ->
     {stop, normal, shutdown_ok, State};
@@ -160,8 +115,9 @@ handle_call(Request, From, State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% --------------------------------------------------------------------
 handle_cast({heart_beat,Interval}, State) ->
-
-    spawn(fun()->h_beat(Interval) end),    
+    R=[rpc:cast(SdPod,sd_service,register_service,[atom_to_list(?MODULE),node()])||SdPod<-State#state.sd_pods],
+%    io:format("Dbg ~p~n",[{?MODULE,?LINE,heart_beat,State#state.sd_pods,R}]),
+    spawn(fun()->h_beat(Interval) end),      
     {noreply, State};
 
 handle_cast(Msg, State) ->

@@ -18,7 +18,7 @@
 -define(SERVER_ID,"test_tcp_server").
 %% External exports
 
--export([]).
+-export([start/0]).
 
 
 %% ====================================================================
@@ -29,29 +29,52 @@
 %% Description:
 %% Returns: non
 %% --------------------------------------------------------------------
+start()->
+    ok=init_test(),
+    ok=start_seq_server_test(),
+    ok=seq_client_test(),    
+    ok=stop_test(),
+    ok.
 init_test()->
     {ok,Host}=inet:gethostname(),
     PodIdServer=?SERVER_ID++"@"++Host,
     PodServer=list_to_atom(PodIdServer),
     pong=net_adm:ping(PodServer),
-    ok=application:start(lib_service),
+    ok=rpc:call(PodServer,application,start,[lib_service]),
     ok.
 
 start_seq_server_test()->
     {ok,Host}=inet:gethostname(),
     PodIdServer=?SERVER_ID++"@"++Host,
     PodServer=list_to_atom(PodIdServer),
-    rpc:cast(PodServer,tcp_server,start_seq_server,[?PORT_SEQ]),
+    ok=rpc:call(PodServer,lib_service,start_tcp_server,[?PORT_SEQ,sequence]),
+    
     ok.
 seq_client_test()->
     Date=date(),
-    Date=rpc:call(node(),tcp_client,call,[{"localhost",?PORT_SEQ},node(),{erlang,date,[]}],2000),
-  %  Date=rpc:call(node(),tcp_client,call,[{"localhost",?PORT_SEQ},node(),{glurk,date,[]}]),
+    Date=rpc:call(node(),tcp_client,call,[{"localhost",?PORT_SEQ},node(),{erlang,date,[]}],200),
+   % {badrpc,_}=rpc:call(node(),tcp_client,call,[{"localhost",?PORT_SEQ},node(),{glurk,date,[]}],1000),
+    Date=rpc:call(node(),tcp_client,call,[{"localhost",?PORT_SEQ},node(),{erlang,date,[]}],200),
     ok.
-		   
+
+stop_seq_server_test()->
+    {ok,Host}=inet:gethostname(),
+    PodIdServer=?SERVER_ID++"@"++Host,
+    PodServer=list_to_atom(PodIdServer),
+    {ok,stopped}=rpc:call(PodServer,lib_service,stop_tcp_server,[?PORT_SEQ]),
+    ok.	   
+
+seq_client_2_test()->
+    Date=date(),
+    Date=rpc:call(node(),tcp_client,call,[{"localhost",?PORT_SEQ},node(),{erlang,date,[]}],200),
+    ok.
+
 stop_test()->
-    ok=application:stop(lib_service),
-    ok=application:unload(lib_service),
+    {ok,Host}=inet:gethostname(),
+    PodIdServer=?SERVER_ID++"@"++Host,
+    PodServer=list_to_atom(PodIdServer),
+    ok=rpc:call(PodServer,application,stop,[lib_service]),
+    ok=rpc:call(PodServer,application,unload,[lib_service]),
     kill(),
     ok.
 

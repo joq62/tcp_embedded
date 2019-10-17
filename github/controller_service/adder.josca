@@ -1,0 +1,11 @@
+{specification, adder}.
+{type,service}.
+{description, "Josca file for adder" }.
+{vsn, "1.0.0" }.
+{exported_services,["adder"]}.
+{application_id,"adder"}.
+{num_instances,2}.
+{zone,[]}.
+{geo_red,[]}.
+{needed_capabilities,[]}.
+{dependencies ,[]}.

@@ -1,0 +1,74 @@
+%% Author: uabjle
+%% Created: 10 dec 2012
+%% Description: TODO: Add description to module_org
+-module(s).
+
+%%
+%% Include files
+%%
+
+%%
+%% Exported Functions
+%%
+-export([start/0, client/1, accept/1]).
+
+%%
+%% API Functions
+%%
+start() ->
+    io:format("~p~n",[{?MODULE,?LINE,ssl:start()}]),
+    server(1234).
+
+server(Port) ->
+    {ok, LSocket} = ssl:listen(Port, [{certfile,"/home/joq/erlang/code_examples/ssl/ebin/certificate.pem"}, {keyfile, "/home/joq/erlang/code_examples/ssl/ebin/key.pem"}, {reuseaddr, true}, {active, true}]),
+    {ok, Socket} = ssl:transport_accept(LSocket),
+    ok= ssl:ssl_accept(Socket),
+ 
+   % spawn(fun() -> accept(LSocket) end).
+    spawn(fun() -> accept(Socket) end).
+%accept(LSocket) ->
+%    {ok, Socket} = ssl:transport_accept(LSocket),
+ %   ok= ssl:ssl_accept(Socket),
+accept(Socket)->
+    Pid = spawn(fun() ->
+			io:format("Connection accepted ~p~n", [Socket]),
+			loop(Socket)
+		end),
+    ssl:controlling_process(Socket, Pid),
+    %accept(LSocket).
+    accept(Socket).
+
+    loop(Socket) ->
+    io:format("loop: ~p~n", [{?MODULE,?LINE,Socket}]),
+ %   ssl:setopts(Socket, [{active, once}]),
+    receive
+	{ssl,Sock, Data} ->
+            io:format("Got packet: ~p~n", [Data]),
+            ssl:send(Sock, Data),
+            loop(Socket);
+	{ssl_closed, Sock} ->
+            io:format("Closing socket: ~p~n", [Sock]);
+	Error ->
+            io:format("Error on socket: ~p~n", [Error])
+    end.
+
+
+
+client(N) ->
+  %  io:format("~p~n",[{?MODULE,?LINE,N}]),
+    io:format("~p~n",[{?MODULE,?LINE,ssl:start()}]),
+    {ok, Socket} = ssl:connect("localhost", 1234,  []),
+    io:format("Client opened socket: ~p~n",[Socket]),
+    ok = ssl:send(Socket, N),
+    receive
+	{ssl,{sslsocket,Socket},Data}->
+	    Value=Data,
+	    io:format("Client received: ~p~n",[Data]);
+	X->
+	    Value=X,
+	    io:format("X: ~p~n",[{?MODULE,?LINE,X}])
+    after 2000 ->
+	    Value=0
+    end,
+    ssl:close(Socket),
+    Value.

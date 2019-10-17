@@ -1,0 +1,7 @@
+{specification, template}.
+{type,service}.
+{description, " service template" }.
+{vsn, "1.0.0" }.
+{application_id,"adder"}.
+{needed_capabilities,[]}.
+{dependencies ,[]}.

@@ -1,0 +1,17 @@
+{specification, "application template"}.
+{type,application}.
+{description, "Application specification" }.
+{vsn, "1.0.0" }.
+{application_id,"app"}.
+{services,[{{service,"id1_service"},
+	    {num_instances,3},
+	    {zone,["varmdoe.main.room2"]},
+	    {needed_capabilities,[]}},
+	   {{service,"id2_service"},
+	    {num_instances,5},
+	    {zone,["sthlm.flat.room1","varmdoe.main.room2"]},
+	    {needed_capabilities,[]}},
+	   {{service,"id3_service"},
+	    {num_instances,2},
+	    {zone,[]},
+	    {needed_capabilities,[]}}]}.
